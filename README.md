@@ -9,7 +9,7 @@ For development, you will only need Node.js
 
 ## Install
 
-    $ git clone https://github.com/milin0102/Restaurants_Project.git
+    $ git clone https://github.com/milin0102/Game_Project.git
     $ cd backend
     $ npm install express mongoose cors express figlet mongodb nodemon joi bcrypt crypto dotenv moment
 ## Scripts and Setup
