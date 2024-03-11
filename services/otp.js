@@ -1,5 +1,7 @@
 const Otp = require("../models/otp");
 const moment = require("moment");
+
+//Sending hardcoded otp currently
 async function sendOtp(data){
     try {
         if(!data.phoneNo){

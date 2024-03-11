@@ -1,12 +1,21 @@
 const Score = require("../models/score")
 const moment = require("moment")
-const {ObjectId} = require("mongodb")
+const mongodb = require("mongodb")
+const {decryptUserId} = require("../utils/utils")
 
+//Save score functionality 
 async function saveScore(data){
 try {
-    let userId = new mongodb.ObjectId(data.userId)
+    //decrypting encrypted user id
+    let decUserId = decryptUserId(data.userId)
+
+
+    //change userId from string to ObjectId
+    let userId = new mongodb.ObjectId(decUserId.toString())
+
+    //Checking how many times user attempted to add score
     let scoreResp = await Score.find({UserId: userId, CreatedDate :{
-        $gte : moment().format("DD-MM-YYYY") , $lt: (moment().add(1,'days')).format("DD-MM-YYYY")
+        $gte : moment().format("YYYY-MM-DD") , $lt: (moment().add(1,'days')).format("YYY-MM-DD")
     }})
     console.log(scoreResp);
     if(scoreResp.length>=3){
@@ -16,6 +25,8 @@ try {
             message:"You can't submit score more than thrice a day"
         }
     }
+
+    //checking range of score 
     if(data.score<50 || data.score>500){
         return {
             httpStatusCode:300,
@@ -24,8 +35,9 @@ try {
         }
     }
 
+    //add score to db
     let scoreReqObj = {
-        UserId : data.userId,
+        UserId : userId,
         Score : data.score,
         CreatedDate: moment().format("YYYY-MM-DD")
     }
@@ -55,15 +67,20 @@ try {
 }
 }
 
+//total score of a user after signup
 async function totalScore(data){
     try {
         if(!data.userId){
             return {
                 httpStatusCode:422,
                 success:false,
-                message:"userId is requiredS"
+                message:"userId is required"
             }
         }
+        //decrypting user id
+        let decUserId = decryptUserId(data.userId)
+
+        //group scores based on userIds and sorting them on the basis of total score of each user
         let groupByScores = await Score.aggregate([{
             $group : {
                 _id:"$UserId",
@@ -81,19 +98,18 @@ async function totalScore(data){
         let userScoreAndRank = groupByScores.filter((e)=>{
             count++;
             console.log(e)
-            if(String(data.userId) == String(e._id)){
+            if(String(decUserId) == String(e._id)){
                 rank = count;
                 return e;
             }
         })
-        console.log(userScoreAndRank);
         return {
             httpStatusCode:200,
             success:true,
             message:"Final Score and Rank",
             data:{
-                TotalScore : userScoreAndRank[0].totalScore,
-                Rank : rank
+                totalScore : userScoreAndRank[0].totalScore,
+                rank : rank
             }
         } 
     } catch (error) {
@@ -102,6 +118,9 @@ async function totalScore(data){
     }
 }
 
+//Here we are getting the week number on the basis of today's date 
+//It helps us to see how many weeks passed from 1st March
+//Taking friday as firstDay
 function getWeekNumber(date) {
     const startOfMarch = moment(date).startOf('year').month(2).date(1); // 1st March
     const firstFriday = startOfMarch.day(5) <= 1 ? startOfMarch.day(12) : startOfMarch.day(5);
@@ -120,6 +139,17 @@ function getWeekDates(weekNumber, year) {
 // Function to retrieve scores for a user based on weeks starting from Friday, 1st March until the current date
 async function weeklyScore(data) {
     try {
+        if(!data.userId){
+            return {
+                httpStatusCode:422,
+                success:false,
+                message:"UserId is required"
+            }
+        }
+        
+        //decrypting user id
+        let decUserId = decryptUserId(data.userId)
+
         const currentWeek = getWeekNumber(moment());
         const scoresByWeek = [];
 
@@ -129,6 +159,7 @@ async function weeklyScore(data) {
             const endOfWeek =  weekDates.endDate.endOf('day').toDate()
             
             
+            //grouping score on the basis of start and end date
             const groupByScores = await Score.aggregate([
                 {$match : {
                 CreatedDate: {$gte: new Date(startOfWeek), $lte: new Date(endOfWeek)},
@@ -147,7 +178,7 @@ async function weeklyScore(data) {
         let userScoreAndRank = groupByScores.filter((e)=>{
             index++;
             e["rank"] = index;
-            if(String(data.userId) == String(e._id)){
+            if(String(decUserId) == String(e._id)){
                 return e;
             }
         })
@@ -160,13 +191,13 @@ async function weeklyScore(data) {
             }
             
         }
-         console.log(scoresByWeek)
         return {httpStatusCode : 200,
             success:true , 
             data:scoresByWeek
         }
     } catch (error) {
         console.error(error);
+        throw error;
     }
 }
 exports.saveScore = saveScore

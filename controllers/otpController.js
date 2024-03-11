@@ -1,6 +1,8 @@
 const otp = require("../services/otp");
 
 
+
+
 async function sendOtp(req,res){
 try {
     let otpResp = await otp.sendOtp(req.body).catch((e)=>{

@@ -1,10 +1,11 @@
 const express = require("express");
 const User = require("../models/user")
-const {getBcryptPassword , comparePassword} = require("../utils/utils")
+const {getBcryptPassword , comparePassword , encryptUserId , decryptUserId} = require("../utils/utils")
 const moment = require("moment");
 const {UserSignUpSchema }= require("../middlewares/request-validator")
 const Otp = require("../models/otp")
 
+//Signup functionality for a user
 async function signup(data){
     try{
     //payload validation
@@ -16,6 +17,7 @@ async function signup(data){
             message:validation.error
         }
     }
+
     const otp = await Otp.findOne({Otp:data.otp , PhoneNo: data.phoneNo , IsUsed:false}).catch((e)=>{
         console.log(e);
         throw e;
@@ -64,7 +66,9 @@ async function signup(data){
         console.log(e);
         throw e;
     });
+
     if(newUser){
+        //Updating otp IsUsed flag to true currently as we have hardcoded our otp to 1234
         await Otp.updateOne({Otp:data.otp , PhoneNo: data.phoneNo , IsUsed:false},{IsUsed:true}).catch((e)=>{
             console.log(e);
             throw e;
@@ -74,7 +78,7 @@ async function signup(data){
             success:true,
             message:"User created successfully",
             data:{
-                UserId:newUser._id
+                UserId: encryptUserId(newUser._id)
             }
         }
     }
@@ -96,4 +100,55 @@ async function signup(data){
     }
 }
 
+//login functionality for a user
+async function login(data){
+    try {
+        //phoneno  required
+        if(!data.phoneNo){
+            return {
+                httpStatusCode:422,
+                success:false,
+                message:"phone number is required"
+            }
+        }
+
+        //password required
+        if(!data.password){
+            return {
+                httpStatusCode:422,
+                success:false,
+                message:"password is required"
+            }
+        }
+        let user = await User.find({PhoneNo : data.phoneNo}).catch((e)=>{
+            console.log(e);
+            throw e;
+        })
+
+        if(!user.length){
+            return {httpStatusCode:404,
+            success:false,
+            message:"No user found with this phone number"}
+        }else if(!comparePassword(data.password , user[0].Password)){
+            //Comparing password it is hashed using bcrypt
+                return {httpStatusCode:400,
+                    success:false,
+                    message:"Password is incorrect"}
+        }else {
+            return {
+                httpStatusCode:200,
+                success:true,
+                message:"Login successfully",
+                data:{
+                    UserId : encryptUserId(user[0]._id)
+                }
+            }
+        } 
+    } catch (error) {
+        console.log(error);
+        throw error;
+    }
+}
+
 exports.signup = signup
+exports.login = login
