@@ -60,7 +60,7 @@ async function signup(data){
         PhoneNo:data.phoneNo,
         Password: getBcryptPassword(data.password),
         Otp:data.otp,
-        CreatedDate: moment().format("DD-MM-YYYY")
+        CreatedDate: moment().format("YYYY-MM-DD")
     }
     let newUser = await User.create(signUpObj).catch((e)=>{
         console.log(e);
